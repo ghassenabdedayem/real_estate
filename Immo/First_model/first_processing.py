@@ -1,11 +1,5 @@
 import pandas as pd
 import numpy as np
-import matplotlib as plt
-import sklearn as sk
-import seaborn as sns
-import json
-import time
-import requests
 
 
 #defining a function to concatenate adress elements and prepare it for the API request
@@ -21,14 +15,7 @@ def row_to_adress_fields(df, i, sep='+'):
         adress = no_voie + sep + type_de_voie + sep + voie + sep + code_postal + sep + commune
     return adress
 
-#a function that replaces spaces by plus into a given string (phrase)
-def replace_space_by_plus(phrase):
-    phrase.replace(' ', '+')
 
-def concatenate_columns(df, columns, sep='+'):
-    df_temporary = df[columns[0]].apply(replace_space_by_plus)
-    for column in columns[1:]:
-        df_temporary += sep + df[column]
 
 #a function to transform string into integer, and handeling exceptions with 0
 def handle_special_to_int(string):
