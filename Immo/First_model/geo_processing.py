@@ -1,6 +1,7 @@
 import time
 import requests
 import pandas as pd
+from itertools import groupby
 
 
 #takes a string address and returns longitude, latitude and score tuple
@@ -14,15 +15,17 @@ def adresse_to_lon_lat(adresse):
     return (longitude, latitude, score)
 
 
-df = pd.read_csv('processed_to_geo.csv', low_memory=False,dtype={'longitude':str, 'latitude':str})
+df = pd.read_csv('processed_to_geo.csv', low_memory=False, dtype={'longitude':str, 'latitude':str}, index_col=False)
 
 #columns= a list containing the address items
 columns = ['No_voie', 'Type_de_voie', 'Voie', 'Code_postal', 'Commune']
 
-if 'adresse' not in df:
-    df['adresse'] = df[columns].apply(lambda col: ' '.join(col.values.astype(str)), axis = 1)
 
-df.set_index('adresse', inplace=True)
+
+if 'adresse' not in df:
+    df['adresse'] = df[columns].apply(lambda cols: ' '.join(cols.values.astype(str)), axis = 1)
+
+# df.set_index('adresse', inplace=True)
 for col in ['longitude', 'latitude']:
     if col not in df:
         df[col] = ''
@@ -43,35 +46,47 @@ print(f'df_empty time: {time.time()-t} sec')
 print(f'df_empty shape {df_empty.shape}')
 
 #creating a series that contains only the non duplicated addresses
-adresses = pd.Series(df_empty.index)
-adresses.drop_duplicates(inplace=True)
+# addresses = pd.Series(df_empty['adresse'])
+# addresses.drop_duplicates(inplace=True)
 
 #transforming addresses into set type (that will reduce the computation time)
-addresses = {a for a in adresses} 
+addresses = {a for a in df_empty['adresse']} 
+address_index = {k: list(map(lambda x: x[0],v)) for k, v in groupby(df_empty.iterrows(), lambda x: x[1]['adresse'])}
 
-while len(adresses) > 0:
+while len(addresses) > 0:
+
+    print(f'remaining addresses {len(addresses)}')
+
     # to list to be able to use the sublist
-    addresses_list = list(adresses)
-
-    for adresse in addresses_list[0:min(len(addresses_list),100)]:
+    addresses_list = list(addresses)
+    t = time.time()
+    for address in addresses_list[0:min(len(addresses_list),100)]:
         try:
-            t = time.time()
-            lon, lat, score = adresse_to_lon_lat(adresse)
-            print(f'to_lon_lat in {time.time()-t} sec')
+            # t = time.time()
+            lon, lat, score = adresse_to_lon_lat(address)
+            # print(f'to_lon_lat in {time.time()-t} sec')
             # print(f'lon={lon} lat={lat} score={score} address={adresse}')
-            t = time.time()
-            df['longitude'][adresse] = lon
-            df['latitude'][adresse] = lat
-            df['score'][adresse] = score
-            print(f'writing in {time.time()-t} sec')
-        except:
+            # t = time.time()
+
+            # df['longitude'][address] = lon
+            # df['latitude'][address] = lat
+            # df['score'][address] = score
+
+            df.iloc[address_index[address]]['longitude'] = lon
+            df.iloc[address_index[address]]['latitude'] = lat
+            df.iloc[address_index[address]]['score'] = score
+            # print(f'writing in {time.time()-t} sec')
+        except Exception as e:
             df['erreur'] = True
-            print(f'Error address={adresse}')
-        t = time.time()
+            print(f'Error address={address}')
+            print(e)
+        # t = time.time()
         #this is the f source of the f pblm
-        addresses.remove(adresse)
-        print(f'dropping in {time.time()-t} sec')
+        addresses.remove(address)
+        # print(f'dropping in {time.time()-t} sec')
 
     df.to_csv('processed_to_geo.csv')
+    print(f'Time to process 100 lines = {time.time()-t} sec')
+    print(f'remaining addresses {len(addresses)}')
 
-    print(f'shape of df_empty remaining {df_empty.shape}')
+    
